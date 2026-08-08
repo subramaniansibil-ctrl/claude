@@ -4,92 +4,99 @@
 
 ### What is the MCP Client?
 
-The **MCP client** is the communication bridge between your application/server and MCP servers.
+The **MCP client** is the communication bridge between your application (the **host application / our server**) and MCP servers.
 
-It provides access to the tools exposed by an MCP server and handles the protocol-level message exchange so your application does not need to manage those details directly.
+It provides access to capabilities exposed by an MCP server and handles MCP message exchange so your application does not need to implement those protocol details itself.
 
 ```text
-Your Application / Server
-          │
-          ▼
-      MCP Client
-          │
-          │ MCP messages
-          ▼
-      MCP Server
-          │
-          ▼
-   External Service
+User
+  ↓
+Host Application / Our Server
+  ├────────────→ Claude
+  │
+  └→ MCP Client ⇄ MCP Server ⇄ External Service
 ```
 
-A useful certification summary:
-
 > **The MCP client is the application's access point to capabilities exposed by an MCP server.**
+
+### What does “Our Server” mean?
+
+**Our Server is simply the application we are building.** It is also commonly called the **host application** or **orchestrator**. It does not have to be a remote machine or cloud server.
+
+For a local Python learning project, running something such as `uv run main.py` starts the host application on your own computer.
+
+Its job is to coordinate the flow between:
+
+- the user
+- Claude
+- the MCP client
+- MCP servers
+
+It receives the user's query, discovers MCP tools, sends the query and tool definitions to Claude, executes Claude's requested tools through the MCP client, sends tool results back to Claude, and finally returns Claude's answer to the user.
+
+---
+
+## Visual Overview — MCP End-to-End Flow
+
+![MCP End-to-End Flow](./images/mcp-end-to-end-flow.svg)
+
+The diagram is easiest to understand by separating the responsibilities:
+
+| Component | Responsibility |
+|---|---|
+| **User** | Asks a question and receives the final answer |
+| **Our Server / Host Application** | Orchestrates the entire flow |
+| **MCP Client** | Communicates with MCP servers using MCP messages |
+| **MCP Server** | Exposes tools and executes them |
+| **External Service** | Owns the real data/functionality, e.g. GitHub |
+| **Claude** | Understands the request, chooses tools, and generates the final response |
+
+The most important mental model is:
+
+```text
+Claude      → decides WHAT tool to use
+Our Server  → coordinates the flow
+MCP Client  → handles HOW to communicate using MCP
+MCP Server  → knows HOW to execute the tool
+GitHub      → provides the actual external data
+```
 
 ---
 
 ## 1. Transport-Agnostic Communication
 
-One of MCP's key characteristics is that it is **transport agnostic**.
+MCP is **transport agnostic**. This means the MCP protocol is not tied to one communication mechanism.
 
-This means MCP does not depend on only one communication mechanism. The client and server can communicate using different transports depending on how the system is deployed.
-
-### Common transport setup
-
-A very common arrangement runs both the MCP client and MCP server on the **same machine** and communicates using standard input/output.
+A common local setup uses standard input/output:
 
 ```text
-Application
-    │
-MCP Client
-    │
-    │ stdin / stdout
-    ▼
-MCP Server
+Host Application
+      │
+  MCP Client
+      │
+      │ stdin / stdout
+      ▼
+  MCP Server
 ```
 
-Other possible transports include:
+Depending on the implementation/setup, communication can also use network transports such as HTTP.
 
-- HTTP
-- WebSockets
-- Other network protocols
-
-Conceptually:
-
-```text
-                 ┌─ stdin/stdout
-MCP Client ──────┼─ HTTP
-                 ├─ WebSockets
-                 └─ Other transports
-                         │
-                         ▼
-                     MCP Server
-```
-
-### Certification point
-
-> **Transport agnostic means the MCP protocol is not tied to a single underlying communication transport.**
-
-Do not confuse the **protocol** with the **transport** carrying the protocol messages.
+> **Certification point:** Do not confuse the **MCP protocol** with the **transport** carrying MCP messages.
 
 ---
 
 ## 2. Important MCP Message Types
 
-After a client connects to an MCP server, they exchange message types defined by the MCP specification.
-
-The main message pairs introduced in this lesson are:
+The important message pairs introduced in this lesson are:
 
 ```text
 ListToolsRequest  → ListToolsResult
 CallToolRequest   → CallToolResult
 ```
 
----
-
 ### ListToolsRequest / ListToolsResult
 
-The MCP client asks the server which tools it provides.
+Used for **tool discovery**.
 
 ```text
 MCP Client
@@ -100,7 +107,7 @@ MCP Server
     │
     │ ListToolsResult
     ▼
-Available tools
+MCP Client
 ```
 
 Conceptually:
@@ -115,19 +122,11 @@ Server:
 - ...
 ```
 
-This process is **tool discovery**.
-
-### Key point
-
 > **ListToolsRequest discovers available tools; ListToolsResult returns their definitions.**
-
----
 
 ### CallToolRequest / CallToolResult
 
-After Claude chooses a tool, the application asks the MCP client to execute it.
-
-The client sends a **CallToolRequest** to the MCP server containing the selected tool and its arguments.
+Used to **execute a selected tool**.
 
 ```text
 MCP Client
@@ -142,7 +141,7 @@ MCP Server
 External Service
 ```
 
-The result comes back as a **CallToolResult**.
+The result returns as:
 
 ```text
 External Service
@@ -155,293 +154,253 @@ MCP Server
 MCP Client
 ```
 
-### Key point
-
-> **CallToolRequest asks the MCP server to execute a tool; CallToolResult contains the result of that execution.**
+> **CallToolRequest asks the MCP server to execute a tool; CallToolResult contains the result.**
 
 ---
 
 ## 3. Complete MCP Tool-Use Flow
 
-Example user question:
+Example:
 
-> **"What repositories do I have?"**
+> **User: “What repositories do I have?”**
 
-The complete flow is:
-
-### Step 1 — User Query
-
-The user sends a question to your application/server.
+### Step 1 — User sends the query
 
 ```text
-User
- │
- │ "What repositories do I have?"
- ▼
-Your Server
+User → Our Server
+"What repositories do I have?"
 ```
 
-### Step 2 — Tool Discovery Needed
+The host application receives the request.
 
-Your server needs to determine which tools are available before sending the request to Claude.
+### Step 2 — Our Server needs available tools
 
-### Step 3 — Server Asks MCP Client
+Before Claude can choose an MCP tool, the application needs the MCP server's tool definitions.
 
 ```text
-Your Server
-    │
-    │ Get available tools
-    ▼
-MCP Client
+Our Server → MCP Client
+"Get the available tools"
 ```
 
-### Step 4 — List Tools Exchange
+### Step 3 — MCP Client discovers tools
 
 ```text
-MCP Client
-    │
-    │ ListToolsRequest
-    ▼
-MCP Server
-    │
-    │ ListToolsResult
-    ▼
-MCP Client
+MCP Client → MCP Server
+ListToolsRequest
 ```
 
-The server now knows which tools can be offered to Claude.
+The MCP client handles the MCP communication. The host application does not need to construct the low-level MCP exchange itself.
 
-### Step 5 — Request Sent to Claude
-
-Your application sends Claude:
+### Step 4 — MCP Server returns tool definitions
 
 ```text
+MCP Server → MCP Client
+ListToolsResult
+
+MCP Client → Our Server
+Available tools
+```
+
+The application might now know about tools such as `get_repositories()`.
+
+### Step 5 — Query + tools are sent to Claude
+
+```text
+Our Server → Claude
+
 User query
     +
 Available tool definitions
 ```
 
+Claude needs both the user's request and information about which tools are available.
+
+### Step 6 — Claude chooses a tool
+
+Claude reasons about the request and may return a tool-use request such as:
+
 ```text
-Your Server
-     │
-     ▼
-   Claude
+Claude → Our Server
+ToolUse: get_repositories(...)
 ```
 
-### Step 6 — Claude Makes Tool-Use Decision
+**Claude chooses the tool. Claude does not directly call GitHub.**
 
-Claude determines that repository information is required and selects the appropriate tool.
+### Step 7 — Our Server requests execution
 
 ```text
-Claude
-   │
-   │ chooses
-   ▼
-get_repositories(...)
+Our Server → MCP Client
+"Run get_repositories with these arguments"
 ```
 
-### Step 7 — Server Requests Tool Execution
+The host application acts as the orchestrator.
 
-Claude does not directly call GitHub.
-
-Your server receives Claude's tool-use request and asks the MCP client to execute the selected tool.
+### Step 8 — MCP Client sends CallToolRequest
 
 ```text
-Claude
-   │
-   ▼
-Your Server
-   │
-   ▼
+MCP Client → MCP Server
+CallToolRequest
+```
+
+### Step 9 — MCP Server calls GitHub
+
+```text
+MCP Server → GitHub API
+Request repository data
+```
+
+This is where the service-specific integration happens.
+
+GitHub returns the real repository information:
+
+```text
+GitHub API → MCP Server
+Repository data
+```
+
+### Step 10 — Tool result travels back
+
+```text
+MCP Server → MCP Client
+CallToolResult
+
+MCP Client → Our Server
+Tool result
+```
+
+### Step 11 — Our Server sends the result to Claude
+
+Claude requested the tool, but it still needs to see the result:
+
+```text
+Our Server → Claude
+ToolResult: repository data
+```
+
+### Step 12 — Claude creates the final answer
+
+Claude uses the real tool data to formulate a natural-language response.
+
+```text
+Claude → Our Server → User
+"Your repositories are ..."
+```
+
+---
+
+## 4. The Flow in Three Phases
+
+### Phase 1 — Discover tools
+
+```text
+Our Server
+    ↓
 MCP Client
-```
-
-### Step 8 — MCP Client Sends CallToolRequest
-
-```text
-MCP Client
-    │
-    │ CallToolRequest
-    ▼
+    ↓ ListToolsRequest
 MCP Server
-    │
-    ▼
-GitHub API
+    ↑ ListToolsResult
+MCP Client
+    ↑
+Our Server
 ```
 
-The MCP server performs the actual service-specific integration.
-
-### Step 9 — Result Returns
+### Phase 2 — Claude chooses a tool
 
 ```text
-GitHub API
-    │
-    ▼
+Our Server
+    ↓ Query + Tools
+Claude
+    ↑ ToolUse
+Our Server
+```
+
+### Phase 3 — Execute the tool and return the answer
+
+```text
+Our Server
+    ↓
+MCP Client
+    ↓ CallToolRequest
 MCP Server
-    │
-    │ CallToolResult
-    ▼
+    ↓
+GitHub
+    ↑ Repository data
+MCP Server
+    ↑ CallToolResult
 MCP Client
-```
-
-The repository data flows back through the MCP client to your server.
-
-### Step 10 — Tool Result Sent to Claude
-
-```text
-MCP Client
-    │
-    ▼
-Your Server
-    │
-    │ tool result
-    ▼
+    ↑
+Our Server
+    ↓ ToolResult
 Claude
-```
-
-### Step 11 — Claude Generates Final Response
-
-Claude uses the returned repository data to construct a natural-language answer.
-
-### Step 12 — User Receives Answer
-
-```text
-Claude
-   │
-   ▼
-Your Server
-   │
-   ▼
+    ↓ Final answer
+Our Server
+    ↓
 User
 ```
 
 ---
 
-## 4. Full Flow in One Diagram
+## 5. Two Communication Layers
+
+A useful distinction is that the architecture contains two different communication relationships:
 
 ```text
-User
- │
- │ 1. Question
- ▼
-Application / Server
- │
- │ 2. Need available tools
- ▼
-MCP Client
- │
- │ 3. ListToolsRequest
- ▼
-MCP Server
- │
- │ 4. ListToolsResult
- ▼
-MCP Client
- │
- ▼
-Application / Server
- │
- │ 5. Query + tools
- ▼
-Claude
- │
- │ 6. Tool-use decision
- ▼
-Application / Server
- │
- │ 7. Execute selected tool
- ▼
-MCP Client
- │
- │ 8. CallToolRequest
- ▼
-MCP Server
- │
- │ External API request
- ▼
-GitHub API
- │
- │ Repository data
- ▼
-MCP Server
- │
- │ 9. CallToolResult
- ▼
-MCP Client
- │
- ▼
-Application / Server
- │
- │ 10. Tool result
- ▼
-Claude
- │
- │ 11. Final response
- ▼
-Application / Server
- │
- │ 12. Answer
- ▼
-User
+Our Server ⇄ Claude
 ```
 
----
+and
 
-## 5. Responsibility of Each Component
+```text
+MCP Client ⇄ MCP Server
+```
 
-| Component | Main responsibility |
-|---|---|
-| **User** | Provides the request/question |
-| **Application / Server** | Coordinates Claude and the MCP client |
-| **MCP Client** | Handles communication with MCP servers |
-| **MCP Server** | Exposes and executes tools/capabilities |
-| **External Service** | Provides the underlying data/functionality |
-| **Claude** | Decides when a tool is needed and uses results to answer |
-
-This separation of responsibility is important.
-
-The MCP client abstracts server communication, while the MCP server handles service-specific functionality.
+MCP standardizes the communication between the **MCP client and MCP server**. Your host application coordinates that MCP interaction with the Claude API interaction.
 
 ---
 
 ## Certification Takeaways
 
-Remember these points:
-
-1. **The MCP client is the communication bridge** between your application and MCP servers.
-2. MCP is **transport agnostic** — it is not tied to only one communication mechanism.
-3. A common local transport is **standard input/output (stdin/stdout)**.
-4. Other transports can include **HTTP and WebSockets**.
-5. **ListToolsRequest** asks which tools are available.
-6. **ListToolsResult** returns the available tools.
-7. **CallToolRequest** asks the server to execute a particular tool with arguments.
-8. **CallToolResult** contains the tool execution result.
-9. Claude typically **decides which tool to use**, while the MCP server performs the actual external-service interaction.
-10. Tool results are sent back to Claude so it can generate the final answer.
+1. **The MCP client is the communication bridge** between the host application and MCP servers.
+2. **Our Server means the host application/orchestrator**, not another MCP server.
+3. MCP is **transport agnostic**.
+4. **ListToolsRequest** asks which tools are available.
+5. **ListToolsResult** returns the available tool definitions.
+6. **CallToolRequest** asks the MCP server to execute a tool with arguments.
+7. **CallToolResult** returns the result of that execution.
+8. **Claude chooses which tool to use.**
+9. **The MCP client handles MCP communication.**
+10. **The MCP server implements/executes the tool and communicates with the external service.**
+11. Tool results are sent back to Claude so Claude can produce the final answer.
 
 ---
 
 ## Assessment Traps
 
-### Is the MCP client the component that directly implements GitHub API logic?
+### Is “Our Server” the MCP Server?
 
 **No.**
 
-The MCP client handles MCP communication. The GitHub-specific implementation belongs to the GitHub MCP server.
+Our Server is the application/host/orchestrator. The MCP Server is a separate component that exposes MCP capabilities.
+
+### Does the MCP Client implement the GitHub API logic?
+
+**No.**
+
+The MCP client handles MCP communication. The GitHub-specific integration belongs to the MCP server/tool implementation.
+
+### Does Claude directly call GitHub?
+
+**No.**
+
+Claude selects the tool. The host application routes the request through the MCP client to the MCP server, which interacts with GitHub.
 
 ### Does MCP require HTTP?
 
 **No.**
 
-MCP is transport agnostic. Communication can use stdin/stdout, HTTP, WebSockets, or other supported transports.
+MCP is transport agnostic.
 
-### Does Claude directly send CallToolRequest to GitHub?
-
-**No.**
-
-Claude selects the tool. Your application coordinates execution through the MCP client, which sends the MCP request to the MCP server. The MCP server then interacts with GitHub.
-
-### What is the difference between ListToolsRequest and CallToolRequest?
+### ListToolsRequest vs CallToolRequest
 
 ```text
 ListToolsRequest → Discover which tools exist
