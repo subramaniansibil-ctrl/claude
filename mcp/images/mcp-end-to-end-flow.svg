@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760">
+<style>text{font-family:Arial,sans-serif;fill:#172033}.title{font-size:32px;font-weight:700}.sub{font-size:18px}.h{font-size:20px;font-weight:700}.t{font-size:15px}.small{font-size:13px}.box{rx:14;ry:14;stroke-width:2}.arrow{stroke-width:3;fill:none;marker-end:url(#a)}.dash{stroke-dasharray:9 7}</style>
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker></defs>
+<rect width="1400" height="760" fill="#fff"/>
+<text x="700" y="45" text-anchor="middle" class="title">MCP End-to-End Flow — Explained Simply</text>
+<text x="700" y="75" text-anchor="middle" class="sub">Example: “What repositories do I have?”</text>
+<rect x="45" y="120" width="180" height="130" class="box" fill="#eefbf1" stroke="#2f855a"/><text x="135" y="155" text-anchor="middle" class="h">USER</text><text x="135" y="188" text-anchor="middle" class="t">Asks a question</text><text x="135" y="212" text-anchor="middle" class="t">and gets an answer</text>
+<rect x="285" y="105" width="390" height="160" class="box" fill="#eff6ff" stroke="#2563eb"/><text x="480" y="140" text-anchor="middle" class="h">OUR SERVER / HOST APPLICATION</text><text x="480" y="168" text-anchor="middle" class="t">Your application / orchestrator</text><text x="325" y="200" class="small">• receives the user query</text><text x="325" y="222" class="small">• gets MCP tools and sends query + tools to Claude</text><text x="325" y="244" class="small">• routes tool requests/results and returns the answer</text>
+<rect x="710" y="120" width="180" height="130" class="box" fill="#f5f3ff" stroke="#7c3aed"/><text x="800" y="155" text-anchor="middle" class="h">MCP CLIENT</text><text x="800" y="188" text-anchor="middle" class="t">Speaks MCP</text><text x="800" y="212" text-anchor="middle" class="small">ListTools / CallTool</text>
+<rect x="940" y="105" width="220" height="160" class="box" fill="#faf5ff" stroke="#7c3aed"/><text x="1050" y="140" text-anchor="middle" class="h">MCP SERVER</text><text x="1050" y="170" text-anchor="middle" class="t">Provides tools</text><text x="970" y="202" class="small">• exposes capabilities</text><text x="970" y="224" class="small">• executes selected tool</text><text x="970" y="246" class="small">• calls external service</text>
+<rect x="1210" y="120" width="150" height="130" class="box" fill="#fff7ed" stroke="#ea580c"/><text x="1285" y="155" text-anchor="middle" class="h">GITHUB</text><text x="1285" y="188" text-anchor="middle" class="t">External service</text><text x="1285" y="212" text-anchor="middle" class="small">Real repository data</text>
+<path d="M225 185 H285" class="arrow" stroke="#2f855a"/><path d="M675 185 H710" class="arrow" stroke="#2563eb"/><path d="M890 185 H940" class="arrow dash" stroke="#7c3aed"/><text x="915" y="170" text-anchor="middle" class="small">MCP</text><path d="M1160 185 H1210" class="arrow" stroke="#ea580c"/>
+<rect x="285" y="310" width="875" height="355" class="box" fill="#fbfdff" stroke="#cbd5e1"/><text x="722" y="345" text-anchor="middle" class="h">STEP-BY-STEP</text>
+<text x="330" y="385" class="t">1. User → App</text><text x="510" y="385" class="small">“What repositories do I have?”</text>
+<text x="330" y="425" class="t">2. App → MCP Client → MCP Server</text><text x="650" y="425" class="small">ListToolsRequest</text>
+<text x="330" y="465" class="t">3. MCP Server → Client → App</text><text x="650" y="465" class="small">ListToolsResult (available tool definitions)</text>
+<text x="330" y="505" class="t">4. App → Claude</text><text x="510" y="505" class="small">User query + available tools</text>
+<text x="330" y="545" class="t">5. Claude → App</text><text x="510" y="545" class="small">ToolUse: chooses get_repositories(...)</text>
+<text x="330" y="585" class="t">6. App → MCP Client → MCP Server</text><text x="650" y="585" class="small">CallToolRequest</text>
+<text x="330" y="625" class="t">7. MCP Server ↔ GitHub</text><text x="570" y="625" class="small">Calls GitHub API and gets repository data</text>
+<text x="760" y="385" class="t">8. MCP Server → Client → App</text><text x="1010" y="385" class="small">CallToolResult</text>
+<text x="760" y="425" class="t">9. App → Claude</text><text x="930" y="425" class="small">Sends tool result</text>
+<text x="760" y="465" class="t">10. Claude → App → User</text><text x="1000" y="465" class="small">Generates final answer</text>
+<rect x="45" y="690" width="1315" height="48" rx="12" fill="#f8fafc" stroke="#cbd5e1"/><text x="702" y="720" text-anchor="middle" class="h">Remember: Claude chooses WHAT tool • MCP Client handles HOW to communicate • MCP Server knows HOW to execute it</text>
+</svg>
